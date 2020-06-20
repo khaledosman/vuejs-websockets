@@ -49,16 +49,29 @@ export default {
   },
   methods: {
     init() {
-      this.subject = webSocket("ws://159.89.15.214:8080/");
+      this.subject = webSocket({
+        url: "ws://159.89.15.214:8080/",
+        openObserver: {
+          next: event => {
+            this.state = "connected";
+            this.$forceUpdate();
+          }
+        },
+        closeObserver: {
+          next: event => {
+            this.state = "disconnected";
+            this.$forceUpdate();
+          }
+        }
+      });
       this.subject.pipe(takeUntil(completeSubscription)).subscribe(
         msg => {
           console.log(JSON.stringify(msg));
           this.currentStock = msg;
-        }, // Called whenever there is a message from the server.
-        err => console.log(err), // Called if at any point WebSocket API signals some kind of error.
-        () => console.log("complete") // Called when connection is closed (for whatever reason).
+        },
+        err => console.log(err),
+        () => console.log("complete")
       );
-
       this.subject.next({ subscribe: this.selected });
     },
     handleChange(e) {
@@ -71,28 +84,19 @@ export default {
       }
     },
     unsubscribe(isin) {
-      // unsubscribeFromISIN(this.socket, isin);
       this.subject.next({ unsubscribe: isin });
     },
     subscribe(isin) {
-      // subscribeToISIN(this.socket, isin);
       this.subject.next({ subscribe: isin });
-      this.state = "connected";
     },
     destroy() {
       this.timderId = "null";
-      this.state = "disconnected";
       completeSubscription.next();
-      // This will send a message to the server once a connection is made. Remember value is serialized with JSON.stringify by default!
       this.subject.complete(); // Closes the connection.
-      // completeSubscription.complete();
     }
   },
   beforeDestroy() {
     this.destroy();
-    // alert("destroy");
-    // completeSubscription.next();
-    // completeSubscription.complete();
   }
 };
 </script>
