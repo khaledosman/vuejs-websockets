@@ -18,6 +18,7 @@ import {
   unsubscribeFromStock
 } from "../helpers/stock-helpers";
 import { of, fromEvent, from, Subject, Observable } from "rxjs";
+import { webSocket } from "rxjs/websocket";
 import {
   switchMap,
   map,
@@ -28,19 +29,7 @@ import {
 } from "rxjs/operators";
 import { connect } from "../helpers/socket-helpers";
 import StockView from "../components/StockView";
-function send(socket, payload) {
-  return socket.send(JSON.stringify(payload));
-}
-
-function unsubscribeFromISIN(socket, isin) {
-  return send(socket, { unsubscribe: isin });
-}
-
-function subscribeToISIN(socket, isin) {
-  return send(socket, { subscribe: isin });
-}
 const completeSubscription = new Subject();
-
 export default {
   name: "Home",
   components: {
@@ -48,12 +37,11 @@ export default {
   },
   data() {
     return {
+      subject: new Subject(),
       state: "disconnected",
-      socket: null,
       isins: ["DE000BASF111", "DE0008469008", "EU0009652759"],
       selected: "DE000BASF111",
-      currentStock: null,
-      timderId: null
+      currentStock: null
     };
   },
   mounted() {
@@ -61,63 +49,17 @@ export default {
   },
   methods: {
     init() {
-      of(new WebSocket("ws://159.89.15.214:8080/"))
-        .pipe(
-          switchMap(socket => {
-            // wait until connection is open
-            return from(
-              new Promise((resolve, reject) => {
-                socket.onopen = event => {
-                  if (this.timerID) {
-                    window.clearInterval(this.timerID);
-                    this.timerID = null;
-                  }
-                  resolve(socket);
-                };
-                socket.onerror = error => {
-                  this.state = "error";
-                  reject(error);
-                };
+      this.subject = webSocket("ws://159.89.15.214:8080/");
+      this.subject.pipe(takeUntil(completeSubscription)).subscribe(
+        msg => {
+          console.log(JSON.stringify(msg));
+          this.currentStock = msg;
+        }, // Called whenever there is a message from the server.
+        err => console.log(err), // Called if at any point WebSocket API signals some kind of error.
+        () => console.log("complete") // Called when connection is closed (for whatever reason).
+      );
 
-                socket.onclose = event => {
-                  if (!this.timerID) {
-                    this.timerID = setInterval(() => {
-                      this.init();
-                    }, 5000);
-                  }
-                };
-              })
-            );
-          }),
-          tap(socket => {
-            //  subscribe to the selected ISIN
-            this.socket = socket;
-            this.subscribe(this.selected);
-          }),
-          switchMap(socket => {
-            // switch to received messages
-            return new Observable(subscriber => {
-              socket.onmessage = event => {
-                const data = JSON.parse(event.data);
-                subscriber.next(data);
-              };
-              return () => {
-                // clean up
-                console.log("closing ws");
-                socket.close();
-              };
-            });
-          }),
-          takeUntil(completeSubscription),
-          catchError(error => {
-            console.warn(error);
-            return of();
-          })
-        )
-        .subscribe(data => {
-          // console.log(data);
-          this.currentStock = data;
-        });
+      this.subject.next({ subscribe: this.selected });
     },
     handleChange(e) {
       e.stopPropagation();
@@ -129,20 +71,25 @@ export default {
       }
     },
     unsubscribe(isin) {
-      unsubscribeFromISIN(this.socket, isin);
+      // unsubscribeFromISIN(this.socket, isin);
+      this.subject.next({ unsubscribe: isin });
     },
     subscribe(isin) {
-      subscribeToISIN(this.socket, isin);
+      // subscribeToISIN(this.socket, isin);
+      this.subject.next({ subscribe: isin });
       this.state = "connected";
     },
     destroy() {
       this.timderId = "null";
       this.state = "disconnected";
       completeSubscription.next();
+      // This will send a message to the server once a connection is made. Remember value is serialized with JSON.stringify by default!
+      this.subject.complete(); // Closes the connection.
       // completeSubscription.complete();
     }
   },
   beforeDestroy() {
+    this.destroy();
     // alert("destroy");
     // completeSubscription.next();
     // completeSubscription.complete();
