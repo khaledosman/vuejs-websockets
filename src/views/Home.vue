@@ -52,7 +52,8 @@ export default {
       socket: null,
       isins: ["DE000BASF111", "DE0008469008", "EU0009652759"],
       selected: "DE000BASF111",
-      currentStock: null
+      currentStock: null,
+      timderId: null
     };
   },
   mounted() {
@@ -67,11 +68,23 @@ export default {
             return from(
               new Promise((resolve, reject) => {
                 socket.onopen = event => {
+                  if (this.timerID) {
+                    window.clearInterval(this.timerID);
+                    this.timerID = null;
+                  }
                   resolve(socket);
                 };
                 socket.onerror = error => {
                   this.state = "error";
                   reject(error);
+                };
+
+                socket.onclose = event => {
+                  if (!this.timerID) {
+                    this.timerID = setInterval(() => {
+                      this.init();
+                    }, 5000);
+                  }
                 };
               })
             );
@@ -123,8 +136,9 @@ export default {
       this.state = "connected";
     },
     destroy() {
-      completeSubscription.next();
+      this.timderId = "null";
       this.state = "disconnected";
+      completeSubscription.next();
       // completeSubscription.complete();
     }
   },
