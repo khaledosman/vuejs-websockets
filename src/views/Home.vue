@@ -13,21 +13,9 @@
 </template>
 
 <script>
-import {
-  subscribeToStock,
-  unsubscribeFromStock
-} from "../helpers/stock-helpers";
-import { of, fromEvent, from, Subject, Observable } from "rxjs";
+import { Subject } from "rxjs";
 import { webSocket } from "rxjs/websocket";
-import {
-  switchMap,
-  map,
-  tap,
-  takeUntil,
-  share,
-  catchError
-} from "rxjs/operators";
-import { connect } from "../helpers/socket-helpers";
+import { takeUntil, catchError } from "rxjs/operators";
 import StockView from "../components/StockView";
 const completeSubscription = new Subject();
 export default {
@@ -90,7 +78,6 @@ export default {
       this.subject.next({ subscribe: isin });
     },
     destroy() {
-      this.timderId = "null";
       completeSubscription.next();
       this.subject.complete(); // Closes the connection.
     }

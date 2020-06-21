@@ -1,9 +1,9 @@
-import { of, fromEvent } from 'rxjs'
-import { map, switchMap } from 'rxjs/operators'
-import io from 'socket.io-client'
-const WS_URL = 'ws://159.89.15.214:8080/'
+// import { of, fromEvent } from 'rxjs'
+// import { map, switchMap } from 'rxjs/operators'
+// import io from 'socket.io-client'
+// const WS_URL = 'ws://159.89.15.214:8080/'
 
-const socket$ = of(io(WS_URL, { transports: ['websocket'] }))
+// const socket$ = of(io(WS_URL, { transports: ['websocket'] }))
 
 // export function connect () {
 //   return socket$
